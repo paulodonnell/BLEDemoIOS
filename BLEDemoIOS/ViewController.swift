@@ -3,11 +3,23 @@ import UIKit
 
 class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDelegate, UITableViewDataSource
 {
+    let ShowBabyServiceUUID = "0000FFF0-0000-1000-8000-00805F9B34FB"
+    let ShowBabyCharacteristicUUID = "0000FFF4-0000-1000-8000-00805F9B34FB"
+    
+    let ShowBabyTriggerDownId = "QjJET1dO"
+    let ShowBabyTriggerUpId = "QjJVUA=="
+    
+    let ShowBabyButtonDownId = "QjRET1dO"
+    let ShowBabyButtonUpId = "QjRVUA=="
+    
+    let ShowBabyPumpDownId = "QjNET1dO"
+    let ShowBabyPumpUpId = "QjNVUA=="
+    
     let ShowBabyName:String = "SHOWBABY"
     var showBabyPeripheral:CBPeripheral?
     
     var centralManager: CBCentralManager!
-    var peripherals = Array<CBPeripheral>()
+    var commands = Array<String>()
     
     @IBOutlet weak var tableView: UITableView!
     
@@ -101,12 +113,6 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
                 // Request a connection to the peripheral
                 centralManager.connect(showBabyPeripheral!, options: nil)
             }
-        }
-        
-        if(!peripherals.contains(peripheral))
-        {
-            peripherals.append(peripheral)
-            tableView.reloadData()
         }
     }
     
@@ -222,13 +228,19 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         
         if let characteristics = service.characteristics
         {
-            var enableValue:UInt8 = 1
-            let enableBytes = NSData(bytes: &enableValue, length: MemoryLayout<UInt8>.size)
+//            var enableValue:UInt8 = 1
+//            let enableBytes = NSData(bytes: &enableValue, length: 1)
             
             for characteristic in characteristics
             {
                 print("Discovered characteristic with uuid \(characteristic.uuid)")
-                peripheral.setNotifyValue(true, for: characteristic)
+                
+                if(characteristic.uuid == CBUUID(string: ShowBabyCharacteristicUUID))
+                {
+                    peripheral.setNotifyValue(true, for: characteristic)
+                }
+                
+                //peripheral.writeValue(enableBytes as Data, for: characteristic, type: .withResponse)
                 
 //                // Temperature Data Characteristic
 //                if characteristic.UUID == CBUUID(string: Device.TemperatureDataUUID) {
@@ -280,7 +292,37 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         // extract the data from the characteristic's value property and display the value based on the characteristic type
         if let dataBytes = characteristic.value
         {
-            print("Did update value for characteristic with uuid \(characteristic.uuid) to \(dataBytes)")
+            print("Did update value for characteristic with uuid \(characteristic.uuid) to \(dataBytes.base64EncodedString())")
+            
+            if(dataBytes.base64EncodedString() == ShowBabyTriggerDownId)
+            {
+                commands.append("Trigger Down");
+            }
+            else if(dataBytes.base64EncodedString() == ShowBabyTriggerUpId)
+            {
+                commands.append("Trigger Up");
+            }
+            else if(dataBytes.base64EncodedString() == ShowBabyButtonDownId)
+            {
+                commands.append("Button Down");
+            }
+            else if(dataBytes.base64EncodedString() == ShowBabyButtonUpId)
+            {
+                commands.append("Button Up");
+            }
+            else if(dataBytes.base64EncodedString() == ShowBabyPumpDownId)
+            {
+                commands.append("Pump Down");
+            }
+            else if(dataBytes.base64EncodedString() == ShowBabyPumpUpId)
+            {
+                commands.append("Pump Up");
+            }
+            
+            tableView.reloadData()
+            
+            let ip:IndexPath = IndexPath(row: commands.count - 1, section: 0)
+            tableView.scrollToRow(at: ip, at: .bottom, animated: true)
             
 //            if characteristic.UUID == CBUUID(string: Device.TemperatureDataUUID)
 //            {
@@ -293,20 +335,46 @@ class ViewController: UIViewController, CBCentralManagerDelegate, CBPeripheralDe
         }
     }
     
+    func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?)
+    {
+        if error != nil
+        {
+            print("ERROR ON WRITING VALUE FOR CHARACTERISTIC: \(characteristic) - \(error?.localizedDescription)")
+            return
+        }
+        
+        // extract the data from the characteristic's value property and display the value based on the characteristic type
+        if let dataBytes = characteristic.value
+        {
+            print("Did write value for characteristic with uuid \(characteristic.uuid) to \(dataBytes)")
+            
+            //            if characteristic.UUID == CBUUID(string: Device.TemperatureDataUUID)
+            //            {
+            //                displayTemperature(dataBytes)
+            //            }
+            //            else if characteristic.UUID == CBUUID(string: Device.HumidityDataUUID)
+            //            {
+            //                displayHumidity(dataBytes)
+            //            }
+        }
+    }
     
     
     
     
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
+    {
         let cell:UITableViewCell = self.tableView.dequeueReusableCell(withIdentifier: "cell")! as UITableViewCell
         
-        let peripheral = peripherals[indexPath.row]
-        cell.textLabel?.text = peripheral.name
+        let commandText = commands[indexPath.row]
+        cell.textLabel?.text = commandText
         
         return cell
     }
     
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return peripherals.count
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int
+    {
+        return commands.count
     }
 }
